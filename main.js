@@ -238,19 +238,52 @@ async function fetchPaintings() {
 }
 
 async function fetchCatalogPage(page = 1) {
-  try{
-  const query =encodeURIComponent(searchQuery);
-  const res = await fetch(`https://vr-museum-backend-c601.onrender.com/paintings?page=${page}&limit=${catalogPageSize}`);
-  const result = await res.json();
-  console.log("Fetched catalog data:", result);
+  try {
+    const res = await fetch(`https://vr-museum-backend-c601.onrender.com/paintings?page=${page}&limit=${catalogPageSize}`);
+    const result = await res.json();
+    console.log("Fetched catalog data:", result);
 
-  catalogPageData = result.data;
-  totalPaintings = result.total;
-  showCatalog();
-  }catch (err) {
+    catalogPageData = result.data || result;
+    totalPaintings = result.total || result.length;
+    currentCatalogPage = page - 1;
+    showCatalog();
+  } catch (err) {
     console.error('Failed to load catalog page', err);
   }
 }
+
+async function fetchFilteredPaintings({ title = "", artist = "", year = "" }) {
+  try {
+    const params = new URLSearchParams();
+    if (title) params.append("title", title);
+    if (artist) params.append("artist", artist);
+    if (year) params.append("year", year);
+
+    const res = await fetch(`https://vr-museum-backend-c601.onrender.com/search?${params.toString()}`);
+    const result = await res.json();
+
+    catalogPageData = result;
+    totalPaintings = result.length;
+    currentCatalogPage = 0;
+    showCatalog();
+  } catch (err) {
+    console.error('Search failed:', err);
+  }
+}
+
+
+function handleEnterKey() {
+  const query = searchQuery.trim();
+  if (!query) {
+    fetchCatalogPage(1);
+  } else {
+    fetchFilteredPaintings({ title: query }); 
+  }
+
+  scene.remove(keyboardGroup);
+  keyboardGroup = null;
+}
+
 
 
 function displayPaintings(){
@@ -797,10 +830,7 @@ function showVirtualKeyboard(targetInputBox) {
       } else if (char === '␣') {
         searchQuery += ' ';
       } else if (char === '↵') {
-        currentCatalogPage = 0;
-        fetchCatalogPage(1);
-        scene.remove(keyboardGroup);
-        keyboardGroup = null;
+        handleEnterKey();
         return;
       } else {
         searchQuery += char;
@@ -813,8 +843,10 @@ function showVirtualKeyboard(targetInputBox) {
     col++;
   });
 
+  
+
   keyboardGroup.scale.set(0.5, 0.5, 0.5);
-  keyboardGroup.position.set(0, 0.6, -2.5);
+  keyboardGroup.position.set(2, 0.6, -2);
   keyboardGroup.lookAt(camera.position);
   scene.add(keyboardGroup);
 }
